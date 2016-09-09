@@ -21,6 +21,7 @@ class GithubFetcher
       'Language',
       'Created at',
       'Updated at',
+      'Last committed at',
       'By',
     ].to_csv
 
@@ -29,6 +30,7 @@ class GithubFetcher
     until last_response.rels[:next].nil?
       repos = last_response.data
       repos.each do |repo|
+        last_commit = last_commit(repo.full_name)
         puts [
           repo.private,
           repo.full_name,
@@ -40,7 +42,8 @@ class GithubFetcher
           repo.language,
           repo.created_at,
           repo.updated_at,
-          last_committer(repo.full_name)
+          last_commit[:date],
+          last_commit[:name]
         ].to_csv
       end
       last_response = last_response.rels[:next].get
@@ -51,11 +54,15 @@ class GithubFetcher
 
   attr_reader :github
 
-  def last_committer(repo)
+  def last_commit(repo)
+    default = { name: 'Nobody', date: nil }
     head = github.commit(repo, 'HEAD')
-    return 'Nobody' if head.nil?
-    head.commit.committer.name
+    return default if head.nil?
+    {
+      name: head.commit.committer.name,
+      date: head.commit.committer.date
+    }
   rescue Octokit::Conflict
-    'Nobody'
+    default
   end
 end
